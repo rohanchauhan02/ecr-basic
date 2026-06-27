@@ -1,0 +1,217 @@
+name: Deploy to Amazon EKS
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-south-1
+  CLUSTER_NAME: go-app-dev
+  ECR_REPOSITORY: go-app
+  RELEASE_NAME: go-app
+  ENVIRONMENT: dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      ##################################################
+      # Checkout
+      ##################################################
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      ##################################################
+      # Configure AWS Credentials (OIDC)
+      ##################################################
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      ##################################################
+      # Login to ECR
+      ##################################################
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      ##################################################
+      # Build Docker Image
+      ##################################################
+
+      - name: Build Docker Image
+        run: |
+          docker build \
+            -t $ECR_REPOSITORY:${{ github.sha }} \
+            -t $ECR_REPOSITORY:latest .
+
+      ##################################################
+      # Tag Docker Image
+      ##################################################
+
+      - name: Tag Docker Image
+        run: |
+          docker tag \
+            $ECR_REPOSITORY:${{ github.sha }} \
+            ${{ steps.ecr.outputs.registry }}/$ECR_REPOSITORY:${{ github.sha }}
+
+          docker tag \
+            $ECR_REPOSITORY:latest \
+            ${{ steps.ecr.outputs.registry }}/$ECR_REPOSITORY:latest
+
+      ##################################################
+      # Push Docker Image
+      ##################################################
+
+      - name: Push Docker Image
+        run: |
+          docker push ${{ steps.ecr.outputs.registry }}/$ECR_REPOSITORY:${{ github.sha }}
+          docker push ${{ steps.ecr.outputs.registry }}/$ECR_REPOSITORY:latest
+
+      ##################################################
+      # Install yq
+      ##################################################
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+          https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+
+          sudo chmod +x /usr/local/bin/yq
+
+      ##################################################
+      # Read service.config.yml
+      ##################################################
+
+      - name: Read Deployment Config
+        run: |
+
+          echo "NAMESPACE=$(yq '.config.environment.'$ENVIRONMENT'.namespace' iac/service.config.yml)" >> $GITHUB_ENV
+
+          echo "CPU=$(yq '.config.environment.'$ENVIRONMENT'.resources.requests.cpu' iac/service.config.yml)" >> $GITHUB_ENV
+
+          echo "MEMORY=$(yq '.config.environment.'$ENVIRONMENT'.resources.requests.memory' iac/service.config.yml)" >> $GITHUB_ENV
+
+          echo "HOST=$(yq '.config.environment.'$ENVIRONMENT'.ingress.host' iac/service.config.yml)" >> $GITHUB_ENV
+
+          echo "REPLICAS=$(yq '.config.environment.'$ENVIRONMENT'.replicaCount' iac/service.config.yml)" >> $GITHUB_ENV
+
+          echo "SSM_PREFIX=$(yq '.config.environment.'$ENVIRONMENT'.ssm.prefix' iac/service.config.yml)" >> $GITHUB_ENV
+
+      ##################################################
+      # Read Secrets from SSM
+      ##################################################
+
+      - name: Load Secrets
+        run: |
+
+          DB_HOST=$(aws ssm get-parameter \
+            --name "$SSM_PREFIX/db-host" \
+            --query Parameter.Value \
+            --output text)
+
+          DB_USER=$(aws ssm get-parameter \
+            --name "$SSM_PREFIX/db-user" \
+            --query Parameter.Value \
+            --output text)
+
+          DB_PASSWORD=$(aws ssm get-parameter \
+            --name "$SSM_PREFIX/db-password" \
+            --with-decryption \
+            --query Parameter.Value \
+            --output text)
+
+          echo "DB_HOST=$DB_HOST" >> $GITHUB_ENV
+          echo "DB_USER=$DB_USER" >> $GITHUB_ENV
+          echo "DB_PASSWORD=$DB_PASSWORD" >> $GITHUB_ENV
+
+      ##################################################
+      # Generate Helm Values
+      ##################################################
+
+      - name: Generate Helm Values
+        run: |
+
+          cat > values.generated.yaml <<EOF
+          replicaCount: $REPLICAS
+
+          image:
+            repository: ${{ steps.ecr.outputs.registry }}/$ECR_REPOSITORY
+            tag: ${{ github.sha }}
+            pullPolicy: Always
+
+          service:
+            port: 80
+            targetPort: 8080
+
+          ingress:
+            enabled: true
+            className: alb
+            host: $HOST
+
+          resources:
+            requests:
+              cpu: "$CPU"
+              memory: "$MEMORY"
+
+          config:
+            APP_ENV: $ENVIRONMENT
+
+          secret:
+            DB_HOST: "$DB_HOST"
+            DB_USER: "$DB_USER"
+            DB_PASSWORD: "$DB_PASSWORD"
+          EOF
+
+      ##################################################
+      # Configure kubectl
+      ##################################################
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig \
+            --region $AWS_REGION \
+            --name $CLUSTER_NAME
+
+      ##################################################
+      # Install Helm
+      ##################################################
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      ##################################################
+      # Deploy
+      ##################################################
+
+      - name: Helm Deploy
+        run: |
+          helm upgrade --install $RELEASE_NAME \
+            ./iac/helm \
+            --namespace $NAMESPACE \
+            --create-namespace \
+            -f values.generated.yaml
+
+      ##################################################
+      # Verify
+      ##################################################
+
+      - name: Verify Deployment
+        run: |
+          kubectl get pods -n $NAMESPACE
+          kubectl rollout status deployment/$RELEASE_NAME -n $NAMESPACE

@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: {{ include "go-service.fullname" . }}
+
+spec:
+  replicas: {{ .Values.replicaCount }}
+
+  selector:
+    matchLabels:
+      app: {{ include "go-service.name" . }}
+
+  template:
+
+    metadata:
+
+      labels:
+        app: {{ include "go-service.name" . }}
+
+    spec:
+
+      serviceAccountName: {{ include "go-service.fullname" . }}
+
+      containers:
+
+      - name: {{ include "go-service.name" . }}
+
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+
+        ports:
+
+        - containerPort: 8080
+
+        envFrom:
+
+        - configMapRef:
+            name: {{ include "go-service.fullname" . }}
+
+        - secretRef:
+            name: {{ include "go-service.fullname" . }}
+
+        resources:
+{{ toYaml .Values.resources | indent 10 }}

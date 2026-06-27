@@ -22,7 +22,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: terraform
+        working-directory: iac/terraform
 
     env:
       TF_VAR_environment: ${{ github.event.inputs.environment }}
