@@ -26,3 +26,7 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+variable "cluster_name" {
+  type = string
+}

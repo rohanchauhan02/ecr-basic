@@ -16,7 +16,7 @@ resource "aws_internet_gateway" "this" {
   vpc_id = aws_vpc.this.id
 
   tags = merge(var.tags, {
-    Name = "${var.project_name}-igw"
+    Name = "${var.project_name}-${var.environment}-igw"
   })
 }
 
@@ -27,19 +27,18 @@ resource "aws_internet_gateway" "this" {
 resource "aws_subnet" "public" {
   count = 2
 
-  vpc_id = aws_vpc.this.id
-
-  cidr_block = var.public_subnet_cidrs[count.index]
-
-  availability_zone = var.availability_zones[count.index]
-
+  vpc_id                  = aws_vpc.this.id
+  cidr_block              = var.public_subnet_cidrs[count.index]
+  availability_zone       = var.availability_zones[count.index]
   map_public_ip_on_launch = true
 
-  tags = {
+  tags = merge(var.tags, {
     Name = "${var.project_name}-public-${count.index + 1}"
 
     "kubernetes.io/role/elb" = "1"
-  }
+
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+  })
 }
 
 ############################
@@ -49,17 +48,17 @@ resource "aws_subnet" "public" {
 resource "aws_subnet" "private" {
   count = 2
 
-  vpc_id = aws_vpc.this.id
-
-  cidr_block = var.private_subnet_cidrs[count.index]
-
+  vpc_id            = aws_vpc.this.id
+  cidr_block        = var.private_subnet_cidrs[count.index]
   availability_zone = var.availability_zones[count.index]
 
-  tags = {
+  tags = merge(var.tags, {
     Name = "${var.project_name}-private-${count.index + 1}"
 
     "kubernetes.io/role/internal-elb" = "1"
-  }
+
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+  })
 }
 
 ############################
@@ -72,6 +71,10 @@ resource "aws_eip" "nat" {
   depends_on = [
     aws_internet_gateway.this
   ]
+
+  tags = merge(var.tags, {
+    Name = "${var.project_name}-nat-eip"
+  })
 }
 
 ############################
@@ -79,18 +82,16 @@ resource "aws_eip" "nat" {
 ############################
 
 resource "aws_nat_gateway" "this" {
-
-  subnet_id = aws_subnet.public[0].id
-
   allocation_id = aws_eip.nat.id
-
-  tags = {
-    Name = "${var.project_name}-nat"
-  }
+  subnet_id     = aws_subnet.public[0].id
 
   depends_on = [
     aws_internet_gateway.this
   ]
+
+  tags = merge(var.tags, {
+    Name = "${var.project_name}-nat"
+  })
 }
 
 ############################
@@ -98,15 +99,16 @@ resource "aws_nat_gateway" "this" {
 ############################
 
 resource "aws_route_table" "public" {
-
   vpc_id = aws_vpc.this.id
 
   route {
-
     cidr_block = "0.0.0.0/0"
-
     gateway_id = aws_internet_gateway.this.id
   }
+
+  tags = merge(var.tags, {
+    Name = "${var.project_name}-public-rt"
+  })
 }
 
 ############################
@@ -114,35 +116,32 @@ resource "aws_route_table" "public" {
 ############################
 
 resource "aws_route_table" "private" {
-
   vpc_id = aws_vpc.this.id
 
   route {
-
-    cidr_block = "0.0.0.0/0"
-
+    cidr_block     = "0.0.0.0/0"
     nat_gateway_id = aws_nat_gateway.this.id
   }
+
+  tags = merge(var.tags, {
+    Name = "${var.project_name}-private-rt"
+  })
 }
 
 ############################
-# Route Associations
+# Associations
 ############################
 
 resource "aws_route_table_association" "public" {
-
   count = 2
 
-  subnet_id = aws_subnet.public[count.index].id
-
+  subnet_id      = aws_subnet.public[count.index].id
   route_table_id = aws_route_table.public.id
 }
 
 resource "aws_route_table_association" "private" {
-
   count = 2
 
-  subnet_id = aws_subnet.private[count.index].id
-
+  subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.private.id
 }

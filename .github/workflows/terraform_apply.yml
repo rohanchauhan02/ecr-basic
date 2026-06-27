@@ -6,15 +6,33 @@ on:
       environment:
         description: "Environment"
         required: true
+        default: "dev"
         type: choice
         options:
           - dev
           - qa
           - prod
 
+      apply_target:
+        description: "Resources to apply"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - iam
+          - s3
+          - ecr
+          - vpc
+          - eks
+
 permissions:
   id-token: write
   contents: read
+
+concurrency:
+  group: terraform-apply-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   terraform-apply:
@@ -47,10 +65,47 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan
+        shell: bash
         run: |
-          terraform plan \
-          -var-file=environments/${{ github.event.inputs.environment }}.tfvars \
-          -out=tfplan
+          TARGET="${{ github.event.inputs.apply_target }}"
+
+          if [ "$TARGET" = "all" ]; then
+            terraform plan \
+              -var-file=environments/${{ github.event.inputs.environment }}.tfvars \
+              -out=tfplan
+          else
+
+            case "$TARGET" in
+              iam)
+                MODULE="module.iam_role"
+                ;;
+              s3)
+                MODULE="module.s3"
+                ;;
+              ecr)
+                MODULE="module.ecr"
+                ;;
+              vpc)
+                MODULE="module.vpc"
+                ;;
+              eks)
+                MODULE="module.eks"
+                ;;
+              *)
+                echo "Invalid target"
+                exit 1
+                ;;
+            esac
+
+            terraform plan \
+              -target=$MODULE \
+              -var-file=environments/${{ github.event.inputs.environment }}.tfvars \
+              -out=tfplan
+          fi
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
+
+      - name: Terraform Outputs
+        if: success()
+        run: terraform output
