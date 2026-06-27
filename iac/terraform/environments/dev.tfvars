@@ -6,6 +6,7 @@ bucket_name = "go-app-dev-bucket"
 ecr_repository_name = "go-app"
 instance_type = "t3.micro"
 repository_name = "go-app"
+cluster_version = "1.32"
 
 vpc_cidr = "10.0.0.0/16"
 public_subnet_cidrs = [

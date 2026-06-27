@@ -1,0 +1,11 @@
+[
+    {
+        "State": "running",
+        "PrivateIp": "10.0.12.64",
+        "Subnet": "subnet-0cd074b7ee248a658",
+        "IAM": "arn:aws:iam::309830656325:instance-profile/eks-60cf83ba-009e-3522-128e-83dfe2c921fb",
+        "SG": [
+            "sg-03fc5a6a15e699250"
+        ]
+    }
+]
