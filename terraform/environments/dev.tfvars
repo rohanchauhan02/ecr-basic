@@ -1,0 +1,11 @@
+
+project_name = "go-app"
+environment = "dev"
+aws_region = "ap-south-1"
+bucket_name = "go-app-dev-bucket"
+ecr_repository_name = "go-app"
+instance_type = "t3.micro"
+db_username = "admin"
+db_password = "ChangeMe123!"
+databricks_host = "https://adb-xxxxxxxx.azuredatabricks.net"
+databricks_token = "xxxxxxxxxxxxxxxxxxxxxxxx"
