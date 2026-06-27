@@ -4,7 +4,7 @@ environment = "dev"
 aws_region = "us-east-1"
 bucket_name = "go-app-dev-bucket"
 ecr_repository_name = "go-app"
-instance_type = "t3.micro"
+instance_type = "t3.medium"
 repository_name = "go-app"
 cluster_version = "1.32"
 
