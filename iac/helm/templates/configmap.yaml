@@ -4,10 +4,9 @@ kind: ConfigMap
 metadata:
   name: {{ include "go-service.fullname" . }}
 
+{{- if .Values.config }}
 data:
-
 {{- range $key,$value := .Values.config }}
-
   {{ $key }}: "{{ $value }}"
-
+{{- end }}
 {{- end }}

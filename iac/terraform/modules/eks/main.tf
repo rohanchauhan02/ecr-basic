@@ -11,8 +11,6 @@ module "eks" {
   endpoint_public_access  = true
   endpoint_private_access = true
 
-  enable_irsa = true
-
   authentication_mode = "API_AND_CONFIG_MAP"
 
   enabled_log_types = [

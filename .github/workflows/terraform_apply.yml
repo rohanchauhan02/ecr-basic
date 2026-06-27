@@ -21,7 +21,6 @@ on:
         options:
           - all
           - iam
-          - s3
           - ecr
           - vpc
           - eks
@@ -78,9 +77,6 @@ jobs:
             case "$TARGET" in
               iam)
                 MODULE="module.iam_role"
-                ;;
-              s3)
-                MODULE="module.s3"
                 ;;
               ecr)
                 MODULE="module.ecr"

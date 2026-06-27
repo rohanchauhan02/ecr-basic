@@ -9,6 +9,9 @@ service:
   type: ClusterIP
   port: 8080
 
+serviceAccount:
+  create: true
+
 ingress:
   enabled: false
   className: alb
@@ -29,8 +32,8 @@ autoscaling:
   maxReplicas: 5
   targetCPUUtilizationPercentage: 70
 
-secret:
+secret: {}
 
-config:
+config: {}
 
 labels: {}

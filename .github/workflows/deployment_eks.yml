@@ -111,7 +111,7 @@ jobs:
 
           echo "REPLICAS=$(yq '.config.environment.'$ENVIRONMENT'.replicaCount' iac/service.config.yml)" >> $GITHUB_ENV
 
-          echo "SSM_PREFIX=$(yq '.config.environment.'$ENVIRONMENT'.ssm.prefix' iac/service.config.yml)" >> $GITHUB_ENV
+          echo "SSM_PREFIX=$(yq '.config.environment.'$ENVIRONMENT'.secretsWildcard' iac/service.config.yml)" >> $GITHUB_ENV
 
       ##################################################
       # Read Secrets from SSM

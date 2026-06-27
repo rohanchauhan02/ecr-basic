@@ -34,11 +34,12 @@ module "eks" {
 
   source = "./modules/eks"
   cluster_name = "${var.project_name}-${var.environment}"
+  cluster_version = var.cluster_version
   project_name = var.project_name
   environment = var.environment
   vpc_id = module.vpc.vpc_id
   private_subnet_ids = module.vpc.private_subnet_ids
-  instance_types = ["t3.medium"]
+  instance_types = [var.instance_type]
   desired_size = 2
   min_size = 1
   max_size = 3

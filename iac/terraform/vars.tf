@@ -30,3 +30,23 @@ variable "availability_zones" {
   type = list(string)
 }
 
+variable "cluster_version" {
+  type    = string
+  default = "1.33"
+}
+
+variable "instance_type" {
+  type    = string
+  default = "t3.medium"
+}
+
+variable "bucket_name" {
+  type    = string
+  default = ""
+}
+
+variable "ecr_repository_name" {
+  type    = string
+  default = ""
+}
+
