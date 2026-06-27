@@ -13,6 +13,19 @@ module "eks" {
 
   authentication_mode = "API_AND_CONFIG_MAP"
 
+  addons = {
+    coredns = {
+      most_recent = true
+    }
+    kube-proxy = {
+      most_recent = true
+    }
+    vpc-cni = {
+      most_recent    = true
+      before_compute = true
+    }
+  }
+
   enabled_log_types = [
     "api",
     "audit",
