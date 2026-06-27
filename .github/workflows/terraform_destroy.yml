@@ -14,17 +14,10 @@ on:
           - prod
 
       destroy_target:
-        description: "Resources to destroy"
+        description: "Comma-separated targets (all,ecr,eks,vpc,s3,iam)"
         required: true
         default: "all"
-        type: choice
-        options:
-          - all
-          - ecr
-          - eks
-          - vpc
-          - s3
-          - iam
+        type: string
 
 permissions:
   id-token: write
@@ -68,87 +61,104 @@ jobs:
       - name: Terraform Plan Destroy
         shell: bash
         run: |
-          TARGET="${{ github.event.inputs.destroy_target }}"
+          TARGETS="${{ github.event.inputs.destroy_target }}"
 
-          if [ "$TARGET" = "all" ]; then
+          if [ "$TARGETS" = "all" ]; then
+            echo "Planning destruction of all resources..."
+
             terraform plan \
               -destroy \
               -var-file=environments/${{ github.event.inputs.environment }}.tfvars
-          else
 
-            case "$TARGET" in
+            exit 0
+          fi
+
+          ARGS=""
+          IFS=',' read -ra ITEMS <<< "$TARGETS"
+
+          for ITEM in "${ITEMS[@]}"; do
+            ITEM=$(echo "$ITEM" | xargs)
+
+            case "$ITEM" in
               ecr)
-                MODULE="module.ecr"
+                ARGS="$ARGS -target=module.ecr"
                 ;;
               eks)
-                MODULE="module.eks"
+                ARGS="$ARGS -target=module.eks"
                 ;;
               vpc)
-                MODULE="module.vpc"
+                ARGS="$ARGS -target=module.vpc"
                 ;;
               s3)
-                MODULE="module.s3"
+                ARGS="$ARGS -target=module.s3"
                 ;;
               iam)
-                MODULE="module.iam_role"
+                ARGS="$ARGS -target=module.iam_role"
                 ;;
               *)
-                echo "Invalid target"
+                echo "Invalid target: $ITEM"
                 exit 1
                 ;;
             esac
+          done
 
-            terraform plan \
-              -destroy \
-              -target=$MODULE \
-              -var-file=environments/${{ github.event.inputs.environment }}.tfvars
-          fi
+          echo "Running: terraform plan -destroy $ARGS"
+
+          terraform plan \
+            -destroy \
+            $ARGS \
+            -var-file=environments/${{ github.event.inputs.environment }}.tfvars
 
       - name: Terraform Destroy
         shell: bash
         run: |
-          TARGET="${{ github.event.inputs.destroy_target }}"
+          TARGETS="${{ github.event.inputs.destroy_target }}"
 
-          if [ "$TARGET" = "all" ]; then
-
+          if [ "$TARGETS" = "all" ]; then
             echo "Destroying all infrastructure..."
 
             terraform destroy \
               -auto-approve \
               -var-file=environments/${{ github.event.inputs.environment }}.tfvars
 
-          else
+            exit 0
+          fi
 
-            case "$TARGET" in
+          ARGS=""
+          IFS=',' read -ra ITEMS <<< "$TARGETS"
+
+          for ITEM in "${ITEMS[@]}"; do
+            ITEM=$(echo "$ITEM" | xargs)
+
+            case "$ITEM" in
               ecr)
-                MODULE="module.ecr"
+                ARGS="$ARGS -target=module.ecr"
                 ;;
               eks)
-                MODULE="module.eks"
+                ARGS="$ARGS -target=module.eks"
                 ;;
               vpc)
-                MODULE="module.vpc"
+                ARGS="$ARGS -target=module.vpc"
                 ;;
               s3)
-                MODULE="module.s3"
+                ARGS="$ARGS -target=module.s3"
                 ;;
               iam)
-                MODULE="module.iam_role"
+                ARGS="$ARGS -target=module.iam_role"
                 ;;
               *)
-                echo "Invalid target"
+                echo "Invalid target: $ITEM"
                 exit 1
                 ;;
             esac
+          done
 
-            echo "Destroying $MODULE"
+          echo "Destroying selected resources..."
 
-            terraform destroy \
-              -target=$MODULE \
-              -auto-approve \
-              -var-file=environments/${{ github.event.inputs.environment }}.tfvars
-
-          fi
+          terraform destroy \
+            -auto-approve \
+            $ARGS \
+            -var-file=environments/${{ github.event.inputs.environment }}.tfvars
 
       - name: Terraform Outputs
         if: success()
