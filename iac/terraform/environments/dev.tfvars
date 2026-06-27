@@ -1,7 +1,7 @@
 
 project_name = "go-app"
 environment = "dev"
-aws_region = "ap-south-1"
+aws_region = "us-east-1"
 bucket_name = "go-app-dev-bucket"
 ecr_repository_name = "go-app"
 instance_type = "t3.micro"
@@ -18,6 +18,6 @@ private_subnet_cidrs = [
   "10.0.12.0/24"
 ]
 availability_zones = [
-  "ap-south-1a",
-  "ap-south-1b"
+  "us-east-1a",
+  "us-east-1b"
 ]
