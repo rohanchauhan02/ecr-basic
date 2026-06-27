@@ -6,26 +6,45 @@ on:
       environment:
         description: "Environment"
         required: true
+        default: "dev"
         type: choice
         options:
           - dev
-          - qa
+          - uat
           - prod
+
+      destroy_target:
+        description: "Resources to destroy"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - ecr
+          - eks
+          - vpc
+          - s3
+          - iam
 
 permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: terraform-destroy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-south-1
+
 jobs:
-  terraform-destroy:
+  destroy:
+    name: Terraform Destroy
     runs-on: ubuntu-latest
 
     defaults:
       run:
         working-directory: iac/terraform
-
-    env:
-      TF_VAR_environment: ${{ github.event.inputs.environment }}
 
     steps:
       - name: Checkout Repository
@@ -35,7 +54,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ap-south-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -43,8 +62,94 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
-      - name: Terraform Destroy
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan Destroy
+        shell: bash
         run: |
-          terraform destroy \
-          -auto-approve \
-          -var-file=environments/${{ github.event.inputs.environment }}.tfvars
+          TARGET="${{ github.event.inputs.destroy_target }}"
+
+          if [ "$TARGET" = "all" ]; then
+            terraform plan \
+              -destroy \
+              -var-file=environments/${{ github.event.inputs.environment }}.tfvars
+          else
+
+            case "$TARGET" in
+              ecr)
+                MODULE="module.ecr"
+                ;;
+              eks)
+                MODULE="module.eks"
+                ;;
+              vpc)
+                MODULE="module.vpc"
+                ;;
+              s3)
+                MODULE="module.s3"
+                ;;
+              iam)
+                MODULE="module.iam_role"
+                ;;
+              *)
+                echo "Invalid target"
+                exit 1
+                ;;
+            esac
+
+            terraform plan \
+              -destroy \
+              -target=$MODULE \
+              -var-file=environments/${{ github.event.inputs.environment }}.tfvars
+          fi
+
+      - name: Terraform Destroy
+        shell: bash
+        run: |
+          TARGET="${{ github.event.inputs.destroy_target }}"
+
+          if [ "$TARGET" = "all" ]; then
+
+            echo "Destroying all infrastructure..."
+
+            terraform destroy \
+              -auto-approve \
+              -var-file=environments/${{ github.event.inputs.environment }}.tfvars
+
+          else
+
+            case "$TARGET" in
+              ecr)
+                MODULE="module.ecr"
+                ;;
+              eks)
+                MODULE="module.eks"
+                ;;
+              vpc)
+                MODULE="module.vpc"
+                ;;
+              s3)
+                MODULE="module.s3"
+                ;;
+              iam)
+                MODULE="module.iam_role"
+                ;;
+              *)
+                echo "Invalid target"
+                exit 1
+                ;;
+            esac
+
+            echo "Destroying $MODULE"
+
+            terraform destroy \
+              -target=$MODULE \
+              -auto-approve \
+              -var-file=environments/${{ github.event.inputs.environment }}.tfvars
+
+          fi
+
+      - name: Terraform Outputs
+        if: success()
+        run: terraform output || true
