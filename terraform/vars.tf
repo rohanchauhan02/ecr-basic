@@ -10,3 +10,7 @@ variable "project_name" {
 variable "environment" {
   default = "dev"
 }
+
+variable "repository_name" {
+  type = string
+}
