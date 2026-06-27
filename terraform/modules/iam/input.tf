@@ -9,5 +9,5 @@ variable "github_owner" {
 }
 variable "github_repo" {
   description = "The GitHub repository name"
-  default     = "https://github.com/rohanchauhan02/ecr-basic"
+  default     = "ecr-basic"
 }
