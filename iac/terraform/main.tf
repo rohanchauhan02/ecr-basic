@@ -47,5 +47,5 @@ module "eks" {
 
 
 module "asm" {
-  source = "./module/asm"
+  source = "./modules/asm"
 }
