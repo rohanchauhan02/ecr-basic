@@ -24,6 +24,7 @@ on:
           - ecr
           - vpc
           - eks
+          - asm
 
 permissions:
   id-token: write
@@ -86,6 +87,9 @@ jobs:
                 ;;
               eks)
                 MODULE="module.eks"
+                ;;
+              asm)
+                MODULE="module.asm"
                 ;;
               *)
                 echo "Invalid target"

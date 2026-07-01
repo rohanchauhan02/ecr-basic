@@ -3,14 +3,19 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"test/config"
 )
 
 func main() {
 	http.HandleFunc("/", hello)
+	cfg, err := config.Load("config/config.yml")
+	if err != nil {
+		panic(err)
+	}
 
-	fmt.Println("Server is running on http://localhost:8080")
+	fmt.Println("Server is running on http://localhost:", cfg.Port)
 
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	if err := http.ListenAndServe(cfg.Port, nil); err != nil {
 		fmt.Println(err)
 	}
 }

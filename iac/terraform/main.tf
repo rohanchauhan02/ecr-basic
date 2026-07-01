@@ -44,3 +44,8 @@ module "eks" {
   min_size = 1
   max_size = 3
 }
+
+
+module "asm" {
+  source = "./module/asm"
+}

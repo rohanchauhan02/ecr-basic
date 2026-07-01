@@ -1,6 +1,0 @@
-apiVersion: v2
-name: go-app
-description: Helm chart for Go Application
-type: application
-version: 1.0.0
-appVersion: "1.0.0"
